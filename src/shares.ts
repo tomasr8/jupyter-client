@@ -71,7 +71,7 @@ export async function fetchShares(): Promise<IShare[]> {
   const outgoing: IShare[] = (byMeData.public_shares as RawPublicShareItem[]).map(item => ({
     id: item.public_share?.id?.opaque_id ?? '',
     name: item.resource_info?.name ?? item.public_share?.display_name ?? '',
-    path: item.resource_info?.path ?? '',
+    path: (item.resource_info?.path ?? '').replace(/^\/eos/, ''), // Remove leading /eos to get path relative to ContentsManager root_dir
     direction: 'outgoing',
     sharedWith: []
   }));
@@ -79,7 +79,7 @@ export async function fetchShares(): Promise<IShare[]> {
   const incoming: IShare[] = (withMeData.shares as RawReceivedShareItem[]).map(item => ({
     id: item.received_share?.share?.id?.opaque_id ?? '',
     name: item.resource_info?.name ?? '',
-    path: item.resource_info?.path ?? '',
+    path: (item.resource_info?.path ?? '').replace(/^\/eos/, ''), // Remove leading /eos to get path relative to ContentsManager root_dir
     direction: 'incoming',
     sharedBy: item.received_share?.share?.owner?.opaque_id
   }));
