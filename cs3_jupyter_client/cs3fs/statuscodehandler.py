@@ -25,7 +25,7 @@ class StatusCodeHandler:
             raise PermissionError("Permission denied")
         if isinstance(e, ValueError):
             raise ValueError("Invalid input")
-        raise OSError("Unknown error occurred")
+        raise OSError(f"Unknown error occurred: {e}")
 
 class ErrorToHttpCode:
     def map_exception_to_http_code(self, e: Exception) -> int:

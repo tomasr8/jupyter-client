@@ -1,4 +1,6 @@
 # sharing/handlers.py
+import jwt
+from typing import cast
 from tornado import web
 from jupyter_server.base.handlers import APIHandler
 from jupyter_server.utils import url_path_join
@@ -246,15 +248,22 @@ class SharedByMeHandler(APIHandler):
         headers = self.request.headers
         creator_idp = headers.get("creator_idp", "")
         creator_opaque_id = headers.get("creator_opaque_id", "")
+        from ..cs3mixin import CS3Mixin
         cm = self.contents_manager
-        try:
-            shares, _ = cm.list_existing_shares_by_creator(creator_idp, creator_opaque_id)
-            public_shares, _ = cm.list_existing_public_shares_by_creator(creator_idp, creator_opaque_id)
-        except Exception as e:
-            http_code = ErrorToHttpCode().map_exception_to_http_code(e)
-            self.set_status(http_code)
-            self.write({"error": str(e)})
-            return
+        if not creator_idp or not creator_opaque_id:
+            decoded = jwt.decode(cast(CS3Mixin, cm).cs3_token, algorithms=["HS256"], options={"verify_signature": False})
+            user_id = decoded.get("user", {}).get("id", {})
+            creator_idp = creator_idp or user_id.get("idp", "")
+            creator_opaque_id = creator_opaque_id or user_id.get("opaque_id", "")
+        print(f"Listing shares created by user with idp: {creator_idp}, opaque_id: {creator_opaque_id}")
+        shares, _ = cm.list_existing_shares_by_creator(creator_idp, creator_opaque_id)
+        public_shares, _ = cm.list_existing_public_shares_by_creator(creator_idp, creator_opaque_id)
+        # try:
+        # except Exception as e:
+        #     http_code = ErrorToHttpCode().map_exception_to_http_code(e)
+        #     self.set_status(http_code)
+        #     self.write({"error": str(e)})
+        #     return
         shares_list = [
             MessageToDict(s, preserving_proto_field_name=True)
             for s in shares
@@ -354,13 +363,13 @@ class GetQuotaHandler(APIHandler):
     async def get(self):
         cm = self.contents_manager
         path = self.get_query_argument("path", default="")
-        try:
-            quota = cm.get_quota(path)
-        except Exception as e:
-            http_code = ErrorToHttpCode().map_exception_to_http_code(e)
-            self.set_status(http_code)
-            self.write({"error": str(e)})
-            return
+        # try:
+        quota = cm.get_quota(path)
+        # except Exception as e:
+        #     http_code = ErrorToHttpCode().map_exception_to_http_code(e)
+        #     self.set_status(http_code)
+        #     self.write({"error": str(e)})
+        #     return
         quota_dict = MessageToDict(quota, preserving_proto_field_name=True)
         self.set_header("Content-Type", "application/json")
         self.write({"quota": quota_dict})

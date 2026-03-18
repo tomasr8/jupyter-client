@@ -1,4 +1,4 @@
-import { ServerConnection } from '@jupyterlab/services';
+// import { ServerConnection } from '@jupyterlab/services';
 
 /**
  * Storage quota information for the user's CERNBox home.
@@ -14,20 +14,24 @@ export interface IQuota {
  * Fetch the user's storage quota from the CS3/CERNBox backend.
  */
 export async function fetchQuota(): Promise<IQuota> {
-  const settings = ServerConnection.makeSettings();
-  const url = settings.baseUrl + 'quota';
-  const response = await ServerConnection.makeRequest(url, {}, settings);
-  if (!response.ok) {
-    const data = await response.json();
-    throw new ServerConnection.ResponseError(response, data.error ?? response.statusText);
-  }
-  const data = await response.json();
-  console.log('[cs3org/cs3-jupyter-client] Fetched quota data:', data);
-  const q = data.quota;
+  // const settings = ServerConnection.makeSettings();
+  // const url = settings.baseUrl + 'quota';
+  // const response = await ServerConnection.makeRequest(url, {}, settings);
+  // if (!response.ok) {
+  //   const data = await response.json();
+  //   throw new ServerConnection.ResponseError(response, data.error ?? response.statusText);
+  // }
+  // const data = await response.json();
+  // console.log('[cs3org/cs3-jupyter-client] Fetched quota data:', data);
+  // const q = data.quota;
+  // return {
+  //   used: q.used_bytes ?? 0,
+  //   total: q.total_bytes ?? 0
+  // };
   return {
-    used: q.used_bytes ?? 0,
-    total: q.total_bytes ?? 0
-  };
+    used: 0,
+    total: 1
+  }
 }
 
 /**

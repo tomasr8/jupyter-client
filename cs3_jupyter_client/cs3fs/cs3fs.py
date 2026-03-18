@@ -87,7 +87,7 @@ class CS3FileSystem:
         self.status_handler = StatusCodeHandler()
         self.root_path = root_path
 
-        if not client_id or not client_secret:
+        if not client_secret:
             raise ValueError("Either token or client_secret must be provided for authentication")
         # Initialize CS3 client
         self.client = CS3Client(cs3config, "cs3client", self.log)
@@ -96,6 +96,10 @@ class CS3FileSystem:
         self.auth.set_client_id(client_id)
         # Set client secret (can also be set in config)
         self.auth.set_client_secret(client_secret)
+        # Seed _token with the bearer token so get_token() uses it directly
+        # via check_token() without calling the Authenticate gateway endpoint.
+        # The bearer token from oauth.token is already a valid CS3 access token.
+        self.auth._token = client_secret
 
     def _resource_from_path(self, path: str) -> Resource:
         """Convert path to CS3 Resource object."""
@@ -492,6 +496,7 @@ class CS3FileSystem:
     # This is when we want to list "shared by me" shares
     def list_existing_shares_by_creator(self, creator_idp: str, creator_opaque_id: str) -> List[dict]:
         """List existing shares created by a user."""
+        print(f"Listing shares for creator_idp: {creator_idp}, creator_opaque_id: {creator_opaque_id}")
         filter = self.client.share.create_share_filter(filter_type="TYPE_CREATOR", creator_opaque_id=creator_opaque_id, creator_idp=creator_idp)
         try:
             result = self.client.share.list_existing_shares(

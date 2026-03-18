@@ -1,3 +1,5 @@
+import { ServerConnection } from '@jupyterlab/services';
+
 /**
  * A CERNBox share — either incoming (shared with me) or outgoing (shared by me).
  */
@@ -15,52 +17,74 @@ export interface IShare {
   sharedWith?: string[];
 }
 
+interface ResourceInfo {
+  path?: string;
+  name?: string;
+}
+
+// Shape of each entry in public_shares from getSharedByMe
+interface RawPublicShareItem {
+  public_share?: {
+    id?: { opaque_id?: string };
+    display_name?: string;
+    owner?: { opaque_id?: string };
+  };
+  resource_info?: ResourceInfo;
+}
+
+// Shape of each entry in shares from getSharedWithMe
+interface RawReceivedShareItem {
+  received_share?: {
+    share?: {
+      id?: { opaque_id?: string };
+      owner?: { opaque_id?: string };
+      creator?: { opaque_id?: string };
+    };
+  };
+  resource_info?: ResourceInfo;
+}
+
 /**
- * Fetch the user's shares from CERNBox.
- *
- * TODO: Replace with a real CS3/CERNBox API call.
+ * Fetch the user's shares from CERNBox (both incoming and outgoing).
  */
 export async function fetchShares(): Promise<IShare[]> {
-  // Simulate network latency
-  await new Promise(resolve => setTimeout(resolve, 300));
+  const settings = ServerConnection.makeSettings();
 
-  return [
-    // ── Shared with me ──────────────────────────────────────
-    {
-      id: 'share-in-1',
-      name: 'trigger-studies',
-      path: '/user/j/jdoe/trigger-studies',
-      direction: 'incoming',
-      sharedBy: 'jdoe'
-    },
-    {
-      id: 'share-in-2',
-      name: 'ml-pipeline',
-      path: '/user/a/asmith/ml-pipeline',
-      direction: 'incoming',
-      sharedBy: 'asmith'
-    },
-    {
-      id: 'share-in-3',
-      name: 'beam-optics-2026',
-      path: '/user/m/mrossi/beam-optics-2026',
-      direction: 'incoming',
-      sharedBy: 'mrossi'
-    },
-    // ── Shared by me ────────────────────────────────────────
-    {
-      id: 'share-out-1',
-      name: 'Documents',
-      path: '/user/t/troun/Documents',
-      direction: 'outgoing',
-      sharedWith: ['jdoe', 'asmith']
-    },
-    {
-      id: 'share-out-2',
-      name: 'Swan_projects',
-      path: '/user/t/troun/SWAN_projects',
-      direction: 'outgoing',
-      sharedWith: ['mrossi']
-    }
-  ];
+  const [byMeResp, withMeResp] = await Promise.all([
+    ServerConnection.makeRequest(settings.baseUrl + 'share/getSharedByMe', {}, settings),
+    ServerConnection.makeRequest(settings.baseUrl + 'share/getSharedWithMe', {}, settings)
+  ]);
+
+  if (!byMeResp.ok) {
+    const data = await byMeResp.json();
+    throw new ServerConnection.ResponseError(byMeResp, data.error ?? byMeResp.statusText);
+  }
+  if (!withMeResp.ok) {
+    const data = await withMeResp.json();
+    throw new ServerConnection.ResponseError(withMeResp, data.error ?? withMeResp.statusText);
+  }
+
+  const byMeData = await byMeResp.json();
+  const withMeData = await withMeResp.json();
+
+  // Public shares (link-based, no specific grantee)
+  const outgoing: IShare[] = (byMeData.public_shares as RawPublicShareItem[]).map(item => ({
+    id: item.public_share?.id?.opaque_id ?? '',
+    name: item.resource_info?.name ?? item.public_share?.display_name ?? '',
+    path: item.resource_info?.path ?? '',
+    direction: 'outgoing',
+    sharedWith: []
+  }));
+
+  const incoming: IShare[] = (withMeData.shares as RawReceivedShareItem[]).map(item => ({
+    id: item.received_share?.share?.id?.opaque_id ?? '',
+    name: item.resource_info?.name ?? '',
+    path: item.resource_info?.path ?? '',
+    direction: 'incoming',
+    sharedBy: item.received_share?.share?.owner?.opaque_id
+  }));
+
+  console.log('[cs3org/cs3-jupyter-client] Fetched shares:', { outgoing, incoming });
+
+  return [...outgoing, ...incoming];
 }
