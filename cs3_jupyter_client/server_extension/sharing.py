@@ -6,10 +6,21 @@ from jupyter_server.base.handlers import APIHandler
 from jupyter_server.utils import url_path_join
 from google.protobuf.json_format import MessageToDict
 from ..cs3fs.statuscodehandler import ErrorToHttpCode
+from ..fileio import CS3FileManagerMixin
+
+CS3_SERVICE_KEY = 'cs3_service'
 
 
+class CS3APIHandler(APIHandler):
+    """Base handler that provides access to the CS3 service regardless of
+    which ContentsManager is configured."""
 
-class SharesHandler(APIHandler):
+    @property
+    def cs3_service(self) -> CS3FileManagerMixin:
+        return self.settings[CS3_SERVICE_KEY]
+
+
+class SharesHandler(CS3APIHandler):
 
     @web.authenticated
     async def post(self):
@@ -31,7 +42,7 @@ class SharesHandler(APIHandler):
         grantee_type = body.get("grantee_type", "USER")
 
         # Reuse client from the contents manager
-        cm = self.contents_manager
+        cm = self.cs3_service
         self.log.info(f"Creating share for path: {path} to {grantee_type} {opaque_id} with role {role}")
         try:
             share = cm.create_share(opaque_id, idp, role, path, grantee_type)
@@ -60,7 +71,7 @@ class SharesHandler(APIHandler):
         role = body.get("role", None)
         display_name = body.get("display_name", None)
 
-        cm = self.contents_manager
+        cm = self.cs3_service
         self.log.info(f"Updating share: {share_id} with role {role} and display name {display_name}")
         try:
             share = cm.update_share(share_id, role=role, display_name=display_name)
@@ -82,7 +93,7 @@ class SharesHandler(APIHandler):
         """
         # Get the resource path from query parameters
         share_id = self.get_query_argument("share_id", default=None)
-        cm = self.contents_manager
+        cm = self.cs3_service
         try:
             cm.remove_share(share_id)
         except Exception as e:
@@ -93,7 +104,7 @@ class SharesHandler(APIHandler):
 
         self.set_status(204)
 
-class LinkHandler(APIHandler):
+class LinkHandler(CS3APIHandler):
 
     @web.authenticated
     async def post(self):
@@ -121,7 +132,7 @@ class LinkHandler(APIHandler):
         notify_uploads_extra_recipients = body.get("notify_uploads_extra_recipients", None)
 
         # Reuse client from the contents manager
-        cm = self.contents_manager
+        cm = self.cs3_service
         self.log.info(f"Creating public share for path: {path} with role {role}")
         try:
             share = cm.create_public_share(
@@ -174,7 +185,7 @@ class LinkHandler(APIHandler):
         notify_uploads = body.get("notify_uploads", False)
         notify_uploads_extra_recipients = body.get("notify_uploads_extra_recipients", None)
 
-        cm = self.contents_manager
+        cm = self.cs3_service
 
         self.log.info(f"Updating public share: {share_id} with type {type} role {role}")
         try:
@@ -207,7 +218,7 @@ class LinkHandler(APIHandler):
         """
         # Get the resource path from query parameters
         share_id = self.get_query_argument("share_id", default=None)
-        cm = self.contents_manager
+        cm = self.cs3_service
 
         try:
             cm.remove_public_share(share_id)
@@ -219,10 +230,10 @@ class LinkHandler(APIHandler):
 
         self.set_status(204)
 
-class SharedWithMeHandler(APIHandler):
+class SharedWithMeHandler(CS3APIHandler):
     @web.authenticated
     async def get(self):
-        cm = self.contents_manager
+        cm = self.cs3_service
         try:
             shares, _ = cm.list_received_existing_shares()
         except Exception as e:
@@ -239,7 +250,7 @@ class SharedWithMeHandler(APIHandler):
         self.write({"shares": shares_list})
 
 
-class SharedByMeHandler(APIHandler):
+class SharedByMeHandler(CS3APIHandler):
     """
     Handler for retrieving shares created by the user, both regular and public shares.
     """
@@ -249,7 +260,7 @@ class SharedByMeHandler(APIHandler):
         creator_idp = headers.get("creator_idp", "")
         creator_opaque_id = headers.get("creator_opaque_id", "")
         from ..cs3mixin import CS3Mixin
-        cm = self.contents_manager
+        cm = self.cs3_service
         if not creator_idp or not creator_opaque_id:
             decoded = jwt.decode(cast(CS3Mixin, cm).cs3_token, algorithms=["HS256"], options={"verify_signature": False})
             user_id = decoded.get("user", {}).get("id", {})
@@ -276,7 +287,7 @@ class SharedByMeHandler(APIHandler):
         self.write({"shares": shares_list, "public_shares": public_shares_list})
 
 
-class SharedByResourceHandler(APIHandler):
+class SharedByResourceHandler(CS3APIHandler):
     """
     Handler for retrieving regular and public shares created by the user for a specific resource.
     query param path: path to the resource (REQUIRED).
@@ -284,7 +295,7 @@ class SharedByResourceHandler(APIHandler):
     @web.authenticated
     async def get(self):
         path = self.get_query_argument("path", default="")
-        cm = self.contents_manager
+        cm = self.cs3_service
         try:
             shares, _ = cm.list_existing_shares_by_resource(path)
             public_shares, _ = cm.list_existing_public_shares_by_resource(path)
@@ -304,7 +315,7 @@ class SharedByResourceHandler(APIHandler):
         self.set_header("Content-Type", "application/json")
         self.write({"shares": shares_list, "public_shares": public_shares_list})
 
-class FindUsersHandler(APIHandler):
+class FindUsersHandler(CS3APIHandler):
     """
     Handler for finding users.
     :query search: The query string for TYPE_QUERY filter.
@@ -316,7 +327,7 @@ class FindUsersHandler(APIHandler):
     async def get(self):
         search = self.get_query_argument("search", default="")
         user_type = self.get_query_argument("type", default=None)
-        cm = self.contents_manager
+        cm = self.cs3_service
         try:
             users = cm.find_users(search, user_type=user_type)
         except Exception as e:
@@ -331,7 +342,7 @@ class FindUsersHandler(APIHandler):
         self.set_header("Content-Type", "application/json")
         self.write({"search": search, "items": users_list})
 
-class FindGroupsHandler(APIHandler):
+class FindGroupsHandler(CS3APIHandler):
     """
     Handler for finding groups.
     :query search: The query string for TYPE_QUERY filter.
@@ -339,7 +350,7 @@ class FindGroupsHandler(APIHandler):
     @web.authenticated
     async def get(self):
         search = self.get_query_argument("search", default="")
-        cm = self.contents_manager
+        cm = self.cs3_service
         try:
             # We don't use GROUP_TYPE_FEDERATED, all groups are regular groups.
             groups = cm.find_groups(search, "GROUP_TYPE_REGULAR")
@@ -355,13 +366,13 @@ class FindGroupsHandler(APIHandler):
         self.set_header("Content-Type", "application/json")
         self.write({"search": search, "items": groups_list})
 
-class GetQuotaHandler(APIHandler):
+class GetQuotaHandler(CS3APIHandler):
     """
     Handler for retrieving quota information for the user.
     """
     @web.authenticated
     async def get(self):
-        cm = self.contents_manager
+        cm = self.cs3_service
         path = self.get_query_argument("path", default="")
         # try:
         quota = cm.get_quota(path)
@@ -374,13 +385,13 @@ class GetQuotaHandler(APIHandler):
         self.set_header("Content-Type", "application/json")
         self.write({"quota": quota_dict})
 
-class GetSpaceHandler(APIHandler):
+class GetSpaceHandler(CS3APIHandler):
     """
     Handler for retrieving space information for the user.
     """
     @web.authenticated
     async def get(self):
-        cm = self.contents_manager
+        cm = self.cs3_service
         try:
             spaces = cm.list_spaces()
         except Exception as e:
