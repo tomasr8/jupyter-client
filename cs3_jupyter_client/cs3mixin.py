@@ -14,10 +14,15 @@ class CS3Mixin(LoggingConfigurable):
     Base mixin providing CS3 filesystem access for all file operation classes.
     """
     def __init__(self, **kwargs):
+        # Pre-initialize private attrs before super().__init__() so that trait
+        # validators (e.g. _validate_preferred_dir → root_dir → get_user_path)
+        # don't raise AttributeError and trigger __getattr__ recursion.
+        self.__dict__.setdefault('_user_path', '')
+        self.__dict__.setdefault('_cs3_fs', None)
+        self.__dict__.setdefault('_config', None)
         super().__init__(**kwargs)
         self._read_token_file()
-        self._cs3_fs = None
-        # Initialize CS3 filesystem
+        # Overwrite with the actual values now that traits are initialised.
         self._user_path = f'{self.root_path}'
         self._config = self._create_cs3_config()
         self.log.debug(f"CS3Mixin initialized with path: {self._user_path}")
@@ -138,9 +143,7 @@ class CS3Mixin(LoggingConfigurable):
         return self._get_cs3_fs_indep()
 
     def __getattr__(self, name: str):
-
-        # Don't proxy private attributes (starting with _) to avoid recursion
-        if name.startswith('_'):
+        if name.startswith('_') or self.__dict__.get('_config') is None:
             raise AttributeError(f"'{type(self).__name__}' object has no attribute '{name}'")
 
         # Delegate to cs3_fs
