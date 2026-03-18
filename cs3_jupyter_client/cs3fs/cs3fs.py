@@ -96,6 +96,7 @@ class CS3FileSystem:
         self.auth.set_client_id(client_id)
         # Set client secret (can also be set in config)
         self.auth.set_client_secret(client_secret)
+        self.auth._token = client_secret
 
     def _resource_from_path(self, path: str) -> Resource:
         """Convert path to CS3 Resource object."""

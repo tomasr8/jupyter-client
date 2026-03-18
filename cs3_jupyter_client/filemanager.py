@@ -64,6 +64,13 @@ class CS3FileContentsManager(CS3FileManagerMixin):
     def _validate_root_dir(self, proposal):
         return self.get_user_path()
 
+    # Upstream _validate_preferred_dir calls dir_exists which requires a fully
+    # initialized CS3 filesystem — not available during __init__. Skip the check,
+    # same rationale as _validate_root_dir above.
+    @validate("preferred_dir")
+    def _validate_preferred_dir(self, proposal):
+        return proposal["value"]
+
     # Different import than upstream
     @default("checkpoints_class")
     def _checkpoints_class_default(self):

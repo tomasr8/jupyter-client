@@ -14,9 +14,14 @@ class CS3Mixin(LoggingConfigurable):
     Base mixin providing CS3 filesystem access for all file operation classes.
     """
     def __init__(self, **kwargs):
+        # Pre-initialize attributes that may be accessed during super().__init__():
+        # traitlets config loading triggers trait validators (e.g. _validate_preferred_dir)
+        # which access root_dir -> __getattr__ -> _get_cs3_fs_indep -> self._config.
+        self._cs3_fs = None
+        self._config = None
+        self._user_path = ''
         super().__init__(**kwargs)
         self._read_token_file()
-        self._cs3_fs = None
         # Initialize CS3 filesystem
         self._user_path = f'{self.root_path}'
         self._config = self._create_cs3_config()
@@ -143,8 +148,15 @@ class CS3Mixin(LoggingConfigurable):
         if name.startswith('_'):
             raise AttributeError(f"'{type(self).__name__}' object has no attribute '{name}'")
 
-        # Delegate to cs3_fs
-        target = getattr(self.cs3_fs, name)
+        # Don't proxy during __init__ — config isn't ready yet
+        if self._config is None:
+            raise AttributeError(f"'{type(self).__name__}' object has no attribute '{name}'")
+
+        # Delegate to cs3_fs — call the factory method directly instead of going
+        # through the cs3_fs @property, because if a property raises AttributeError
+        # internally, Python treats the attribute as missing and calls __getattr__
+        # again, causing infinite recursion.
+        target = getattr(self._get_cs3_fs_indep(), name)
 
         if not callable(target):
             return target
