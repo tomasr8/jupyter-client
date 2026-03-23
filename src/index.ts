@@ -6,10 +6,12 @@ import { spacesIcon, shareIcon } from './icons';
 import { SpacesWidget } from './spaces-widget';
 import { SharesWidget } from './shares-widget';
 import { attachQuotaIndicator } from './quota-widget';
-import { createShare } from './shares';
-import { ShareDialogBody, IShareFormData } from './share-dialog';
+import { createShare, updateShare, deleteShare } from './shares';
+import { ShareDialogBody, IShareFormData, EditShareDialogBody, IEditShareFormData } from './share-dialog';
 
 const SHARE_COMMAND = 'cs3:share-folder';
+const EDIT_SHARE_COMMAND = 'cs3:edit-share';
+const DELETE_SHARE_COMMAND = 'cs3:delete-share';
 
 /**
  * The Shares plugin.
@@ -36,7 +38,7 @@ const sharesPlugin: JupyterFrontEndPlugin<void> = {
       app.shell.add(widget, 'left');
     }
 
-    // -- Register the "Share" context menu command --
+    // -- "Share" context menu on file browser folders --
     let formData: IShareFormData | null = null;
 
     app.commands.addCommand(SHARE_COMMAND, {
@@ -68,6 +70,7 @@ const sharesPlugin: JupyterFrontEndPlugin<void> = {
         if (result.button.accept && formData) {
           try {
             await createShare(folderPath, formData);
+            widget.reload();
           } catch (err) {
             await showErrorMessage(
               'Share failed',
@@ -82,6 +85,86 @@ const sharesPlugin: JupyterFrontEndPlugin<void> = {
       command: SHARE_COMMAND,
       selector: '.jp-DirListing-item[data-isdir="true"]',
       rank: 50
+    });
+
+    // -- "Edit Share" context menu on share items --
+    let editFormData: IEditShareFormData | null = null;
+
+    app.commands.addCommand(EDIT_SHARE_COMMAND, {
+      label: 'Edit Share',
+      isVisible: () => widget.contextShare !== null,
+      execute: async () => {
+        const share = widget.contextShare;
+        if (!share) {
+          return;
+        }
+        editFormData = { role: share.role ?? 'VIEWER' };
+
+        const result = await showDialog({
+          title: 'Edit Share',
+          body: React.createElement(EditShareDialogBody, {
+            share,
+            onChange: (data: IEditShareFormData) => {
+              editFormData = data;
+            }
+          }),
+          buttons: [Dialog.cancelButton(), Dialog.okButton({ label: 'Save' })]
+        });
+
+        if (result.button.accept && editFormData) {
+          try {
+            await updateShare(share.id, editFormData);
+            widget.reload();
+          } catch (err) {
+            await showErrorMessage(
+              'Update failed',
+              err instanceof Error ? err.message : 'Unknown error'
+            );
+          }
+        }
+      }
+    });
+
+    app.contextMenu.addItem({
+      command: EDIT_SHARE_COMMAND,
+      selector: '.swan-shares-item[data-share-id]',
+      rank: 10
+    });
+
+    // -- "Delete Share" context menu on share items --
+    app.commands.addCommand(DELETE_SHARE_COMMAND, {
+      label: 'Delete Share',
+      isVisible: () => widget.contextShare !== null,
+      execute: async () => {
+        const share = widget.contextShare;
+        if (!share) {
+          return;
+        }
+
+        const result = await showDialog({
+          title: 'Delete Share',
+          body: `Are you sure you want to delete the share "${share.name}"?`,
+          buttons: [Dialog.cancelButton(), Dialog.warnButton({ label: 'Delete' })]
+        });
+
+        if (result.button.accept) {
+          try {
+            await deleteShare(share.id, share.shareType);
+            widget.reload();
+          } catch (err) {
+            await showErrorMessage(
+              'Delete failed',
+              err instanceof Error ? err.message : 'Unknown error'
+            );
+          }
+        }
+      }
+    });
+
+    app.contextMenu.addItem({
+      command: DELETE_SHARE_COMMAND,
+      selector: '.swan-shares-item[data-share-id]',
+      rank: 20
     });
   }
 };

@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { ServerConnection } from '@jupyterlab/services';
+import { IShare } from './shares';
 
 interface IUserOrGroup {
   display_name?: string;
@@ -199,6 +200,62 @@ export function ShareDialogBody(props: {
           <strong>{role.toLowerCase()}</strong>
         </div>
       )}
+    </div>
+  );
+}
+
+export interface IEditShareFormData {
+  role: string;
+  display_name?: string;
+}
+
+/**
+ * Body widget for the Edit Share dialog.
+ * Allows changing the role and display name of an existing share.
+ */
+export function EditShareDialogBody(props: {
+  share: IShare;
+  onChange: (data: IEditShareFormData) => void;
+}): React.ReactElement {
+  const [role, setRole] = useState(props.share.role ?? 'VIEWER');
+  const [displayName, setDisplayName] = useState(props.share.name);
+
+  useEffect(() => {
+    props.onChange({ role, display_name: displayName });
+  }, [role, displayName]);
+
+  return (
+    <div className="swan-share-dialog">
+      <div className="swan-share-dialog-field">
+        <label className="swan-share-dialog-label">Share name</label>
+        <input
+          className="swan-share-dialog-input"
+          type="text"
+          value={displayName}
+          onChange={e => setDisplayName(e.target.value)}
+        />
+      </div>
+
+      <div className="swan-share-dialog-field">
+        <label className="swan-share-dialog-label">Permission</label>
+        <select
+          className="swan-share-dialog-select"
+          value={role}
+          onChange={e => setRole(e.target.value)}
+        >
+          <option value="VIEWER">Viewer</option>
+          <option value="EDITOR">Editor</option>
+        </select>
+      </div>
+
+      <div className="swan-share-dialog-summary">
+        <strong>{props.share.name}</strong>
+        {props.share.sharedWith && props.share.sharedWith.length > 0 && (
+          <span> shared with {props.share.sharedWith.join(', ')}</span>
+        )}
+        {props.share.sharedBy && <span> from {props.share.sharedBy}</span>}
+        {' — '}{props.share.path}
+      </div>
     </div>
   );
 }

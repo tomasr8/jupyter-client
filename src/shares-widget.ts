@@ -30,6 +30,12 @@ export class SharesWidget extends Widget {
   private _shell: JupyterFrontEnd.IShell;
   private _listNode: HTMLElement;
   private _shares: IShare[] = [];
+  private _contextShare: IShare | null = null;
+
+  /** The share that was most recently right-clicked (for context menu commands). */
+  get contextShare(): IShare | null {
+    return this._contextShare;
+  }
 
   constructor(fileBrowser: FileBrowser, shell: JupyterFrontEnd.IShell) {
     super();
@@ -46,6 +52,11 @@ export class SharesWidget extends Widget {
     this.node.appendChild(header);
     this.node.appendChild(this._listNode);
 
+    this._loadShares();
+  }
+
+  /** Reload shares from the server. */
+  reload(): void {
     this._loadShares();
   }
 
@@ -124,6 +135,7 @@ export class SharesWidget extends Widget {
     const item = document.createElement('div');
     item.className = CSS.item;
     item.dataset.path = share.path;
+    item.dataset.shareId = share.id;
     item.title = `Open ${share.name}\n${share.path}`;
 
     const name = document.createElement('div');
@@ -138,6 +150,9 @@ export class SharesWidget extends Widget {
     } else if (share.direction === 'outgoing' && share.sharedWith) {
       meta.textContent = `with ${share.sharedWith.join(', ')}`;
     }
+    if (share.role) {
+      meta.textContent = (meta.textContent ? meta.textContent + ' · ' : '') + share.role.toLowerCase();
+    }
     item.appendChild(meta);
 
     const path = document.createElement('div');
@@ -147,6 +162,11 @@ export class SharesWidget extends Widget {
 
     item.addEventListener('click', () => {
       this._navigateToShare(share);
+    });
+
+    // Track which share was right-clicked for context menu commands
+    item.addEventListener('contextmenu', () => {
+      this._contextShare = share;
     });
 
     return item;
