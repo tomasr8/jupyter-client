@@ -88,3 +88,33 @@ export async function fetchShares(): Promise<IShare[]> {
 
   return [...outgoing, ...incoming];
 }
+
+/**
+ * Create a share for a resource via POST /share/share.
+ */
+export async function createShare(
+  path: string,
+  body: {
+    opaque_id: string;
+    idp: string;
+    role: string;
+    grantee_type: string;
+  }
+): Promise<void> {
+  const settings = ServerConnection.makeSettings();
+  const resp = await ServerConnection.makeRequest(
+    settings.baseUrl + 'share/share?path=' + encodeURIComponent(path),
+    {
+      method: 'POST',
+      body: JSON.stringify(body)
+    },
+    settings
+  );
+  if (!resp.ok) {
+    const data = await resp.json();
+    throw new ServerConnection.ResponseError(
+      resp,
+      data.error ?? resp.statusText
+    );
+  }
+}

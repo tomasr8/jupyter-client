@@ -99,11 +99,12 @@ class CS3Mixin(LoggingConfigurable):
     def _read_token_file(self):
         """Read token from file and set cs3_token."""
         try:
-            if os.path.exists(self.token_path):
-                with open(self.token_path, 'r') as f:
+            token_path = os.path.abspath(self.token_path)
+            if os.path.exists(token_path):
+                with open(token_path, 'r') as f:
                     self.cs3_token = f.read().strip()
             else:
-                self.log.warning(f"Token file not found: {self.token_path}")
+                self.log.warning(f"Token file not found: {token_path} (cwd={os.getcwd()})")
         except Exception as e:
             self.log.error(f"Failed to read token file {self.token_path}: {e}")
 

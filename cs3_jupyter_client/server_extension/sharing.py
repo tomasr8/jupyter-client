@@ -33,7 +33,7 @@ class SharesHandler(CS3APIHandler):
         :field grantee_type: Type of grantee, USER or GROUP (REQUIRED).
         """
         # Get the resource path from query parameters
-        path = self.get_query_argument("path", default="")
+        path = "/eos/" + self.get_query_argument("path", default="")
         # Get other parameters from the request body
         body = self.get_json_body() or {}
         opaque_id = body.get("opaque_id", "")
@@ -44,13 +44,13 @@ class SharesHandler(CS3APIHandler):
         # Reuse client from the contents manager
         cm = self.cs3_service
         self.log.info(f"Creating share for path: {path} to {grantee_type} {opaque_id} with role {role}")
-        try:
-            share = cm.create_share(opaque_id, idp, role, path, grantee_type)
-        except Exception as e:
-            http_code = ErrorToHttpCode().map_exception_to_http_code(e)
-            self.set_status(http_code)
-            self.write({"error": str(e)})
-            return
+        share = cm.create_share(opaque_id, idp, role, path, grantee_type)
+        # try:
+        # except Exception as e:
+        #     http_code = ErrorToHttpCode().map_exception_to_http_code(e)
+        #     self.set_status(http_code)
+        #     self.write({"error": str(e)})
+        #     return
 
         share = MessageToDict(share, preserving_proto_field_name=True)
 
@@ -328,13 +328,13 @@ class FindUsersHandler(CS3APIHandler):
         search = self.get_query_argument("search", default="")
         user_type = self.get_query_argument("type", default=None)
         cm = self.cs3_service
-        try:
-            users = cm.find_users(search, user_type=user_type)
-        except Exception as e:
-            http_code = ErrorToHttpCode().map_exception_to_http_code(e)
-            self.set_status(http_code)
-            self.write({"error": str(e)})
-            return
+        users = cm.find_users(search, user_type=user_type)
+        # try:
+        # except Exception as e:
+        #     http_code = ErrorToHttpCode().map_exception_to_http_code(e)
+        #     self.set_status(http_code)
+        #     self.write({"error": str(e)})
+        #     return
         users_list = [
             MessageToDict(s, preserving_proto_field_name=True)
             for s in users
@@ -351,14 +351,14 @@ class FindGroupsHandler(CS3APIHandler):
     async def get(self):
         search = self.get_query_argument("search", default="")
         cm = self.cs3_service
-        try:
-            # We don't use GROUP_TYPE_FEDERATED, all groups are regular groups.
-            groups = cm.find_groups(search, "GROUP_TYPE_REGULAR")
-        except Exception as e:
-            http_code = ErrorToHttpCode().map_exception_to_http_code(e)
-            self.set_status(http_code)
-            self.write({"error": str(e)})
-            return
+        groups = cm.find_groups(search, "GROUP_TYPE_REGULAR")
+        # try:
+        #     # We don't use GROUP_TYPE_FEDERATED, all groups are regular groups.
+        # except Exception as e:
+        #     http_code = ErrorToHttpCode().map_exception_to_http_code(e)
+        #     self.set_status(http_code)
+        #     self.write({"error": str(e)})
+        #     return
         groups_list = [
             MessageToDict(s, preserving_proto_field_name=True)
             for s in groups
