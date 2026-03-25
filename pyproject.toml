@@ -10,7 +10,7 @@ license = { file = "LICENSE" }
 requires-python = ">=3.10"
 dependencies = [
     "jupyter_server>=2.0.1,<3",
-    "cs3client==1.6.0",
+    "cs3client==1.7.1",
     "protobuf==6.33.5",
 ]
 

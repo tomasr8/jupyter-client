@@ -73,13 +73,13 @@ class SharesHandler(CS3APIHandler):
 
         cm = self.cs3_service
         self.log.info(f"Updating share: {share_id} with role {role} and display name {display_name}")
-        try:
-            share = cm.update_share(share_id, role=role, display_name=display_name)
-        except Exception as e:
-            http_code = ErrorToHttpCode().map_exception_to_http_code(e)
-            self.set_status(http_code)
-            self.write({"error": str(e)})
-            return
+        share = cm.update_share(share_id, role=role, display_name=display_name)
+        # try:
+        # except Exception as e:
+        #     http_code = ErrorToHttpCode().map_exception_to_http_code(e)
+        #     self.set_status(http_code)
+        #     self.write({"error": str(e)})
+        #     return
 
         share = MessageToDict(share, preserving_proto_field_name=True)
         self.set_status(200)
@@ -94,13 +94,13 @@ class SharesHandler(CS3APIHandler):
         # Get the resource path from query parameters
         share_id = self.get_query_argument("share_id", default=None)
         cm = self.cs3_service
-        try:
-            cm.remove_share(share_id)
-        except Exception as e:
-            http_code = ErrorToHttpCode().map_exception_to_http_code(e)
-            self.set_status(http_code)
-            self.write({"error": str(e)})
-            return
+        cm.remove_share(share_id)
+        # try:
+        # except Exception as e:
+        #     http_code = ErrorToHttpCode().map_exception_to_http_code(e)
+        #     self.set_status(http_code)
+        #     self.write({"error": str(e)})
+        #     return
 
         self.set_status(204)
 
