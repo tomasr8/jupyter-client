@@ -256,6 +256,17 @@ class SharedByMeHandler(APIHandler):
             MessageToDict(s, preserving_proto_field_name=True)
             for s in shares
         ]
+        for s in shares_list:
+            if s["share"]["grantee"]["type"] == "GRANTEE_TYPE_USER":
+                try:
+                    user_info = cm.get_user(idp=cm.user_idp, user_id=s["share"]["grantee"]["user_id"]["opaque_id"])
+                    s["grantee_user_info"] = MessageToDict(user_info, preserving_proto_field_name=True)
+                except Exception as e:
+                    self.log.error(f"Error retrieving user info for user {s['share']['grantee']['user_id']['opaque_id']}: {e}")
+            if s["share"]["grantee"]["type"] == "GRANTEE_TYPE_GROUP":
+                # I would skip this for now, otherwise we fetch the members of each group
+                # which can be loads of people.
+                continue
         public_shares_list = [
             MessageToDict(s, preserving_proto_field_name=True)
             for s in public_shares
@@ -285,6 +296,17 @@ class SharedByResourceHandler(APIHandler):
             MessageToDict(s, preserving_proto_field_name=True)
             for s in shares
         ]
+        for s in shares_list:
+            if s["share"]["grantee"]["type"] == "GRANTEE_TYPE_USER":
+                try:
+                    user_info = cm.get_user(idp=cm.user_idp, user_id=s["share"]["grantee"]["user_id"]["opaque_id"])
+                    s["grantee_user_info"] = MessageToDict(user_info, preserving_proto_field_name=True)
+                except Exception as e:
+                    self.log.error(f"Error retrieving user info for user {s['share']['grantee']['user_id']['opaque_id']}: {e}")
+            if s["share"]["grantee"]["type"] == "GRANTEE_TYPE_GROUP":
+                # I would skip this for now, otherwise we fetch the members of each group
+                # which can be loads of people.
+                continue
         public_shares_list = [
             MessageToDict(s, preserving_proto_field_name=True)
             for s in public_shares
