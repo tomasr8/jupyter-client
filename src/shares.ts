@@ -24,14 +24,32 @@ interface RawResourceInfo {
   type?: ResourceType;
 }
 
-interface RawSharedByMeRegular {
+interface RawUserInfo {
+  id: { opaque_id: string };
+  mail: string;
+  display_name: string;
+}
+
+interface RawSharedByMeRegularUser {
   share: {
     id: { opaque_id: string };
     resource_id: { opaque_id: string };
-    grantee: RawUserGrantee | RawGroupGrantee;
+    grantee: RawUserGrantee;
+  };
+  resource_info: RawResourceInfo;
+  grantee_user_info: RawUserInfo;
+}
+
+interface RawSharedByMeRegularGroup {
+  share: {
+    id: { opaque_id: string };
+    resource_id: { opaque_id: string };
+    grantee: RawGroupGrantee;
   };
   resource_info: RawResourceInfo;
 }
+
+type RawSharedByMeRegular = RawSharedByMeRegularUser | RawSharedByMeRegularGroup;
 
 interface RawSharedByMePublic {
   public_share: {
@@ -54,10 +72,22 @@ interface RawSharedWithMe {
   resource_info: RawResourceInfo;
 }
 
-interface Grantee {
-  type: GranteeType;
+interface InvalidGrantee {
+  type: 'GRANTEE_TYPE_INVALID';
   opaqueId: string;
 }
+interface GroupGrantee {
+  type: 'GRANTEE_TYPE_GROUP';
+  opaqueId: string;
+}
+interface UserGrantee {
+  type: 'GRANTEE_TYPE_USER';
+  opaqueId: string;
+  mail: string;
+  displayName: string;
+}
+
+type Grantee = InvalidGrantee | GroupGrantee | UserGrantee;
 
 interface _Share {
   shareDirection: ShareDirection;
@@ -116,6 +146,19 @@ export async function fetchShares(): Promise<Share[]> {
         ? share.share.grantee.user_id.opaque_id
         : share.share.grantee.group_id.opaque_id;
 
+    const grantee: Grantee =
+      'grantee_user_info' in share
+        ? {
+            type: 'GRANTEE_TYPE_USER',
+            opaqueId: sharedWithOpaqueId,
+            mail: share.grantee_user_info.mail,
+            displayName: share.grantee_user_info.display_name
+          }
+        : {
+            type: share.share.grantee.type,
+            opaqueId: sharedWithOpaqueId
+          };
+
     if (!byMeMerged.has(resourceId)) {
       byMeMerged.set(resourceId, {
         shareDirection: 'BY_ME',
@@ -125,18 +168,10 @@ export async function fetchShares(): Promise<Share[]> {
         name: share.resource_info.name,
         path: share.resource_info.path.slice('/eos'.length), // TODO: Don't hardcode this prefix
         rawPath: share.resource_info.path,
-        sharedWith: [
-          {
-            type: share.share.grantee.type,
-            opaqueId: sharedWithOpaqueId
-          }
-        ]
+        sharedWith: [grantee]
       });
     } else {
-      byMeMerged.get(resourceId)?.sharedWith.push({
-        type: share.share.grantee.type,
-        opaqueId: sharedWithOpaqueId
-      });
+      byMeMerged.get(resourceId)?.sharedWith.push(grantee);
     }
   }
 
@@ -180,6 +215,7 @@ export interface ShareGranteeDetail {
   type: GranteeType;
   opaqueId: string;
   role: ShareRole;
+  displayName?: string;
 }
 
 export interface UserSearchResult {
@@ -214,16 +250,22 @@ export async function fetchSharesForResource(rawPath: string): Promise<ShareGran
 
   for (const item of data.shares as RawSharedByMeRegular[]) {
     const grantee = item.share.grantee;
-    const opaqueId =
-      grantee.type === 'GRANTEE_TYPE_USER'
-        ? grantee.user_id.opaque_id
-        : grantee.group_id.opaque_id;
-    results.push({
+    const opaqueId = grantee.type === 'GRANTEE_TYPE_USER' ? grantee.user_id.opaque_id : grantee.group_id.opaque_id;
+
+    const detail: ShareGranteeDetail = {
       shareId: item.share.id.opaque_id,
       type: grantee.type,
       opaqueId,
-      role: roleFromRawPermissions((item.share as Record<string, unknown>).permissions as Record<string, unknown> | undefined)
-    });
+      role: roleFromRawPermissions(
+        (item.share as Record<string, unknown>).permissions as Record<string, unknown> | undefined
+      )
+    };
+
+    if ('grantee_user_info' in item) {
+      detail.displayName = item.grantee_user_info.display_name;
+    }
+
+    results.push(detail);
   }
 
   return results;
@@ -298,7 +340,7 @@ export async function findUsers(query: string, signal?: AbortSignal): Promise<Us
   }
 
   const data = await resp.json();
-  return (data.items as Array<Record<string, unknown>>).map((u) => ({
+  return (data.items as Array<Record<string, unknown>>).map(u => ({
     opaqueId: (u.id as Record<string, string>).opaque_id,
     idp: (u.id as Record<string, string>).idp,
     displayName: (u.display_name as string) || (u.username as string) || '',
@@ -317,7 +359,7 @@ export async function findGroups(query: string, signal?: AbortSignal): Promise<G
   }
 
   const data = await resp.json();
-  return (data.items as Array<Record<string, unknown>>).map((g) => ({
+  return (data.items as Array<Record<string, unknown>>).map(g => ({
     opaqueId: (g.id as Record<string, string>).opaque_id,
     displayName: (g.group_name as string) || (g.id as Record<string, string>).opaque_id
   }));

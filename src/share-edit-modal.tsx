@@ -178,7 +178,9 @@ function GranteeItem({
         <span className="swan-shares-grantee-icon" title={grantee.type === 'GRANTEE_TYPE_USER' ? 'User' : 'Group'}>
           {grantee.type === 'GRANTEE_TYPE_USER' ? '\ud83d\udc64' : '\ud83d\udc65'}
         </span>
-        <span className="swan-shares-grantee-name">{grantee.opaqueId}</span>
+        <span className="swan-shares-grantee-name">
+          {'displayName' in grantee ? grantee.displayName : grantee.opaqueId}
+        </span>
       </div>
       <RoleDropdown value={role} onChange={handleRole} disabled={busy} />
       <button className="swan-shares-grantee-remove" title="Remove" onClick={() => onRemove(grantee.shareId)}>
