@@ -79,6 +79,7 @@ class CS3BaseMixin(CS3Groups, CS3Users, CS3Spaces, CS3Sharing, CS3FileVersions, 
         cs3config.set("cs3client", "tus_enabled", str(self.tus_enabled).lower())
         cs3config.set("cs3client", "ssl_enabled", str(self.ssl_enabled).lower())
         cs3config.set("cs3client", "token_path", self.token_path)
+        cs3config.set("cs3client", "auth_client_id", self.client_id)
         cs3config.set("cs3client", "auth_login_type", self.auth_login_type)
         cs3config.set("cs3client", "authtokenvalidity", str(self.authtokenvalidity))
         cs3config.set("cs3client", "lock_not_impl", str(self.lock_not_impl).lower())
